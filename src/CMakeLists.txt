@@ -60,4 +60,20 @@ if(BUILD_TESTING)
     target_include_directories(MarkDVECodeMapTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
     add_test(NAME MarkDVECodeMapTests COMMAND MarkDVECodeMapTests)
+
+    add_executable(MarkDVEViewTests
+        tests/test_markdownview.cpp
+        markdownview.cpp
+        markdownview.h
+        viewersettings.cpp
+        viewersettings.h
+    )
+
+    target_link_libraries(MarkDVEViewTests PRIVATE Qt6::Widgets Qt6::Test)
+    target_include_directories(MarkDVEViewTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+
+    add_test(NAME MarkDVEViewTests COMMAND MarkDVEViewTests)
+    set_tests_properties(MarkDVEViewTests PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
 endif()

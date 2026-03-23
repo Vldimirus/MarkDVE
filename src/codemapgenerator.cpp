@@ -1579,9 +1579,6 @@ QString buildModuleMarkdown(const CodeMapModuleInfo& moduleInfo, const CodeMapPr
     markdownStream << "## Таблица связей модуля\n\n";
     markdownStream << buildModuleDependencyTable(moduleInfo, model) << "\n\n";
 
-    markdownStream << "## Mermaid-диаграмма связей\n\n";
-    markdownStream << buildModuleMermaidGraph(moduleInfo, model) << "\n\n";
-
     markdownStream << "## Функции\n\n";
     if (moduleInfo.functions.isEmpty()) {
         markdownStream << "Функции не обнаружены.\n\n";

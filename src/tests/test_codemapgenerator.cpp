@@ -138,6 +138,8 @@ void CodeMapGeneratorTests::generateCreatesMarkdownHierarchy()
     QVERIFY(indexText.contains(QStringLiteral("| [SampleWidget](modules/sample_widget.md) | модуль |")));
     QVERIFY(indexText.contains(QStringLiteral("## Таблица связей между модулями")));
     QVERIFY(indexText.contains(QStringLiteral("| [SampleWidget](modules/sample_widget.md) | `signal-slot` | [HelperService](modules/helper_service.md) | fileSaved -> reload |")));
+    QVERIFY(indexText.contains(QStringLiteral("## Mermaid-диаграмма модулей")));
+    QVERIFY(indexText.contains(QStringLiteral("```mermaid")));
     QVERIFY(indexText.contains(QStringLiteral("flowchart TB")));
 
     QFile sampleModuleFile(outputDirectory.path() + QStringLiteral("/modules/sample_widget.md"));
