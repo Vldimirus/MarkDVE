@@ -113,12 +113,12 @@ private slots:
     void openViewerAppearanceSettings();
 
     /**
-     * @brief Запускает мастер генерации Markdown-карты исходного кода.
+     * @brief Запускает мастер генерации Markdown-карты кода из C/C++ исходников.
      *
      * Метод последовательно запрашивает каталог исходников и каталог вывода,
      * а затем создаёт полную иерархию Markdown-файлов с перекрёстными ссылками.
      */
-    void generateCodeMap();
+    void generateCppCodeMap();
 
 private:
     /**
@@ -212,6 +212,12 @@ private:
      */
     bool confirmReplacingOutputDirectory(const QString& outputDirectoryPath);
 
+    /**
+     * @brief Показывает сообщение о том, что генератор для выбранного языка ещё не реализован.
+     * @param languageName Имя языка, для которого пользователь попытался запустить генерацию.
+     */
+    void showUnavailableCodeMapGenerator(const QString& languageName);
+
     WorkspaceManager* m_workspaceManager = nullptr;                 ///< Менеджер корня проекта и списка Markdown-файлов.
     DocumentTabWidget* m_documentTabs = nullptr;                   ///< Центральный виджет вкладок открытых документов.
     DocumentController* m_documentController = nullptr;            ///< Контроллер открытия документов и ссылок.
@@ -222,7 +228,9 @@ private:
     QAction* m_editDocumentAction = nullptr;                       ///< Действие меню для открытия текущего документа в редакторе.
     QAction* m_reloadDocumentAction = nullptr;                     ///< Действие меню для обновления текущего документа.
     QAction* m_viewerAppearanceAction = nullptr;                   ///< Действие меню для настройки внешнего вида окна просмотра Markdown.
-    QAction* m_generateCodeMapAction = nullptr;                    ///< Действие меню для генерации Markdown-карты исходного кода.
+    QAction* m_generateCppCodeMapAction = nullptr;                 ///< Действие меню для генерации Markdown-карты из C/C++ исходников.
+    QAction* m_generatePythonCodeMapAction = nullptr;              ///< Действие меню для будущей генерации Markdown-карты из Python исходников.
+    QAction* m_generateJavaCodeMapAction = nullptr;                ///< Действие меню для будущей генерации Markdown-карты из Java исходников.
     QMenu* m_recentDocumentsMenu = nullptr;                        ///< Подменю истории последних Markdown-документов.
     QHash<QString, EditorWindow*> m_openEditors;                   ///< Карта уже открытых окон редактора по пути документа.
     QList<RecentDocumentEntry> m_recentDocuments;                  ///< История последних открытых Markdown-документов.

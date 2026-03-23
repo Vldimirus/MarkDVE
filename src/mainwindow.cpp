@@ -256,12 +256,12 @@ void MainWindow::openViewerAppearanceSettings()
 }
 
 /**
- * @brief Запускает мастер генерации Markdown-карты исходного кода.
+ * @brief Запускает мастер генерации Markdown-карты кода из C/C++ исходников.
  *
  * Метод последовательно запрашивает каталог исходников и каталог вывода,
  * а затем создаёт полную иерархию Markdown-файлов с перекрёстными ссылками.
  */
-void MainWindow::generateCodeMap()
+void MainWindow::generateCppCodeMap()
 {
     const QString sourceDirectoryPath = QFileDialog::getExistingDirectory(
         this,
@@ -386,9 +386,21 @@ void MainWindow::setupActions()
     m_viewerAppearanceAction->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_V));
     connect(m_viewerAppearanceAction, &QAction::triggered, this, &MainWindow::openViewerAppearanceSettings);
 
-    m_generateCodeMapAction = new QAction(QStringLiteral("Сгенерировать карту кода..."), this);
-    m_generateCodeMapAction->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_G));
-    connect(m_generateCodeMapAction, &QAction::triggered, this, &MainWindow::generateCodeMap);
+    m_generateCppCodeMapAction = new QAction(QStringLiteral("Сгенерировать карту из C/C++..."), this);
+    m_generateCppCodeMapAction->setShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_G));
+    connect(m_generateCppCodeMapAction, &QAction::triggered, this, &MainWindow::generateCppCodeMap);
+
+    m_generatePythonCodeMapAction = new QAction(QStringLiteral("Сгенерировать карту из Python..."), this);
+    connect(m_generatePythonCodeMapAction, &QAction::triggered, this,
+        [this]() {
+            showUnavailableCodeMapGenerator(QStringLiteral("Python"));
+        });
+
+    m_generateJavaCodeMapAction = new QAction(QStringLiteral("Сгенерировать карту из Java..."), this);
+    connect(m_generateJavaCodeMapAction, &QAction::triggered, this,
+        [this]() {
+            showUnavailableCodeMapGenerator(QStringLiteral("Java"));
+        });
 
     QAction* exitAction = new QAction(QStringLiteral("Выход"), this); ///< Действие меню для штатного завершения приложения.
     exitAction->setShortcut(QKeySequence::Quit);
@@ -409,7 +421,10 @@ void MainWindow::setupActions()
     viewMenu->addAction(m_viewerAppearanceAction);
 
     QMenu* toolsMenu = menuBar()->addMenu(QStringLiteral("Инструменты"));
-    toolsMenu->addAction(m_generateCodeMapAction);
+    QMenu* codeMapMenu = toolsMenu->addMenu(QStringLiteral("Генерация карты кода"));
+    codeMapMenu->addAction(m_generateCppCodeMapAction);
+    codeMapMenu->addAction(m_generatePythonCodeMapAction);
+    codeMapMenu->addAction(m_generateJavaCodeMapAction);
 }
 
 /**
@@ -725,4 +740,16 @@ bool MainWindow::confirmReplacingOutputDirectory(const QString& outputDirectoryP
         QMessageBox::No);
 
     return confirmButton == QMessageBox::Yes;
+}
+
+/**
+ * @brief Показывает сообщение о том, что генератор для выбранного языка ещё не реализован.
+ * @param languageName Имя языка, для которого пользователь попытался запустить генерацию.
+ */
+void MainWindow::showUnavailableCodeMapGenerator(const QString& languageName)
+{
+    QMessageBox::information(
+        this,
+        QStringLiteral("Генератор пока недоступен"),
+        QStringLiteral("Генерация карты кода для %1 пока не реализована. Сейчас доступен только генератор для C/C++.").arg(languageName));
 }

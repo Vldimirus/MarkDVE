@@ -1202,6 +1202,146 @@ QString relativeLinkFromModulePage(const CodeMapModuleInfo& targetModule)
 }
 
 /**
+ * @brief Возвращает короткое русское имя типа узла карты кода.
+ * @param moduleInfo Модуль, для которого нужно вернуть человекочитаемый тип.
+ * @return Строка `модуль` для классовых страниц или `файл` для файловых страниц.
+ */
+QString moduleKindText(const CodeMapModuleInfo& moduleInfo)
+{
+    return moduleInfo.isFileModule ? QStringLiteral("файл") : QStringLiteral("модуль");
+}
+
+/**
+ * @brief Создаёт Markdown-таблицу всех модулей проекта.
+ * @param model Полная модель проекта с вычисленными модулями и зависимостями.
+ * @return Markdown-строка с таблицей модулей, их типа, количества функций и числа связей.
+ */
+QString buildProjectModuleTable(const CodeMapProjectModel& model)
+{
+    QStringList tableLines;
+    tableLines << QStringLiteral("| Модуль | Тип | Функций | Связей | Страница |");
+    tableLines << QStringLiteral("| --- | --- | ---: | ---: | --- |");
+
+    for (auto moduleIterator = model.modulesByName.cbegin(); moduleIterator != model.modulesByName.cend(); ++moduleIterator) {
+        const CodeMapModuleInfo& moduleInfo = moduleIterator.value();
+        tableLines << QStringLiteral("| [%1](%2) | %3 | %4 | %5 | `%6` |")
+            .arg(moduleInfo.displayName,
+                moduleInfo.outputRelativePath,
+                moduleKindText(moduleInfo),
+                QString::number(moduleInfo.functions.size()),
+                QString::number(moduleInfo.dependencies.size()),
+                moduleInfo.outputRelativePath);
+    }
+
+    return tableLines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+}
+
+/**
+ * @brief Создаёт Markdown-таблицу всех межмодульных связей проекта.
+ * @param model Полная модель проекта с вычисленными зависимостями.
+ * @return Markdown-строка с таблицей связей между модулями.
+ */
+QString buildProjectDependencyTable(const CodeMapProjectModel& model)
+{
+    QStringList tableLines;
+    tableLines << QStringLiteral("| Откуда | Тип связи | Куда | Детали |");
+    tableLines << QStringLiteral("| --- | --- | --- | --- |");
+
+    for (auto moduleIterator = model.modulesByName.cbegin(); moduleIterator != model.modulesByName.cend(); ++moduleIterator) {
+        const CodeMapModuleInfo& moduleInfo = moduleIterator.value();
+        for (const CodeMapDependencyInfo& dependencyInfo : moduleInfo.dependencies) {
+            if (!model.modulesByName.contains(dependencyInfo.targetModuleName)) {
+                continue;
+            }
+
+            const CodeMapModuleInfo& targetModule = model.modulesByName.value(dependencyInfo.targetModuleName);
+            const QString detailText = dependencyInfo.detailText.isEmpty() ? QStringLiteral("—") : dependencyInfo.detailText;
+            tableLines << QStringLiteral("| [%1](%2) | `%3` | [%4](%5) | %6 |")
+                .arg(moduleInfo.displayName,
+                    moduleInfo.outputRelativePath,
+                    dependencyInfo.relationType,
+                    targetModule.displayName,
+                    targetModule.outputRelativePath,
+                    detailText);
+        }
+    }
+
+    if (tableLines.size() == 2) {
+        return QStringLiteral("Связи между модулями не обнаружены.\n");
+    }
+
+    return tableLines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+}
+
+/**
+ * @brief Создаёт Markdown-таблицу локальных связей выбранного модуля.
+ * @param moduleInfo Модуль, для которого нужно построить таблицу зависимостей.
+ * @param model Полная модель проекта с доступом к известным модулям.
+ * @return Markdown-строка с таблицей связей текущего модуля.
+ */
+QString buildModuleDependencyTable(const CodeMapModuleInfo& moduleInfo, const CodeMapProjectModel& model)
+{
+    if (moduleInfo.dependencies.isEmpty()) {
+        return QStringLiteral("Связи модуля не обнаружены.\n");
+    }
+
+    QStringList tableLines;
+    tableLines << QStringLiteral("| Тип связи | Целевой модуль | Детали |");
+    tableLines << QStringLiteral("| --- | --- | --- |");
+
+    for (const CodeMapDependencyInfo& dependencyInfo : moduleInfo.dependencies) {
+        if (!model.modulesByName.contains(dependencyInfo.targetModuleName)) {
+            continue;
+        }
+
+        const CodeMapModuleInfo& targetModule = model.modulesByName.value(dependencyInfo.targetModuleName);
+        const QString detailText = dependencyInfo.detailText.isEmpty() ? QStringLiteral("—") : dependencyInfo.detailText;
+        tableLines << QStringLiteral("| `%1` | [%2](%3) | %4 |")
+            .arg(dependencyInfo.relationType,
+                targetModule.displayName,
+                relativeLinkFromModulePage(targetModule),
+                detailText);
+    }
+
+    return tableLines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+}
+
+/**
+ * @brief Создаёт Markdown-таблицу локальных Qt `connect(...)`, найденных в модуле.
+ * @param moduleInfo Модуль, для которого нужно вывести таблицу соединений.
+ * @param model Полная модель проекта с доступом к именам целевых модулей.
+ * @return Markdown-строка с таблицей локальных сигнал-слот связей.
+ */
+QString buildConnectionTable(const CodeMapModuleInfo& moduleInfo, const CodeMapProjectModel& model)
+{
+    if (moduleInfo.ownedConnections.isEmpty()) {
+        return QStringLiteral("Qt connect-связи в исходниках модуля не обнаружены.\n");
+    }
+
+    QStringList tableLines;
+    tableLines << QStringLiteral("| Отправитель | Сигнал | Получатель | Слот |");
+    tableLines << QStringLiteral("| --- | --- | --- | --- |");
+
+    for (const CodeMapConnectionInfo& connectionInfo : moduleInfo.ownedConnections) {
+        if (!model.modulesByName.contains(connectionInfo.senderModuleName) || !model.modulesByName.contains(connectionInfo.receiverModuleName)) {
+            continue;
+        }
+
+        const CodeMapModuleInfo& senderModule = model.modulesByName.value(connectionInfo.senderModuleName);
+        const CodeMapModuleInfo& receiverModule = model.modulesByName.value(connectionInfo.receiverModuleName);
+        tableLines << QStringLiteral("| [%1](%2) | `%3` | [%4](%5) | `%6` |")
+            .arg(senderModule.displayName,
+                relativeLinkFromModulePage(senderModule),
+                connectionInfo.senderSignalName,
+                receiverModule.displayName,
+                relativeLinkFromModulePage(receiverModule),
+                connectionInfo.receiverSlotName);
+    }
+
+    return tableLines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+}
+
+/**
  * @brief Создаёт Markdown-блок Mermaid с графом зависимостей проекта.
  * @param model Полная модель проекта с вычисленными связями между модулями.
  * @return Markdown-строка с Mermaid-графом или пояснение об отсутствии связей.
@@ -1210,11 +1350,45 @@ QString buildProjectMermaidGraph(const CodeMapProjectModel& model)
 {
     QStringList graphLines;
     graphLines << QStringLiteral("```mermaid");
-    graphLines << QStringLiteral("flowchart LR");
+    graphLines << QStringLiteral("flowchart TB");
+    graphLines << QStringLiteral("    classDef classModule fill:#EAF2FF,stroke:#1A73E8,stroke-width:1px,color:#202124;");
+    graphLines << QStringLiteral("    classDef fileModule fill:#F1F3F4,stroke:#5F6368,stroke-width:1px,color:#202124;");
 
+    bool hasClassModules = false; ///< Признак наличия классовых модулей для отдельного Mermaid-подграфа.
+    bool hasFileModules = false; ///< Признак наличия файловых модулей для отдельного Mermaid-подграфа.
     for (auto moduleIterator = model.modulesByName.cbegin(); moduleIterator != model.modulesByName.cend(); ++moduleIterator) {
-        const CodeMapModuleInfo& moduleInfo = moduleIterator.value();
-        graphLines << QStringLiteral("    %1[\"%2\"]").arg(mermaidNodeId(moduleInfo.displayName), moduleInfo.displayName);
+        hasClassModules = hasClassModules || !moduleIterator.value().isFileModule;
+        hasFileModules = hasFileModules || moduleIterator.value().isFileModule;
+    }
+
+    if (hasClassModules) {
+        graphLines << QStringLiteral("    subgraph class_modules[\"Классовые модули\"]");
+        for (auto moduleIterator = model.modulesByName.cbegin(); moduleIterator != model.modulesByName.cend(); ++moduleIterator) {
+            const CodeMapModuleInfo& moduleInfo = moduleIterator.value();
+            if (moduleInfo.isFileModule) {
+                continue;
+            }
+
+            graphLines << QStringLiteral("        %1[\"%2<br/>функций: %3<br/>связей: %4\"]")
+                .arg(mermaidNodeId(moduleInfo.displayName), moduleInfo.displayName, QString::number(moduleInfo.functions.size()), QString::number(moduleInfo.dependencies.size()));
+            graphLines << QStringLiteral("        class %1 classModule").arg(mermaidNodeId(moduleInfo.displayName));
+        }
+        graphLines << QStringLiteral("    end");
+    }
+
+    if (hasFileModules) {
+        graphLines << QStringLiteral("    subgraph file_modules[\"Файловые узлы\"]");
+        for (auto moduleIterator = model.modulesByName.cbegin(); moduleIterator != model.modulesByName.cend(); ++moduleIterator) {
+            const CodeMapModuleInfo& moduleInfo = moduleIterator.value();
+            if (!moduleInfo.isFileModule) {
+                continue;
+            }
+
+            graphLines << QStringLiteral("        %1[\"%2<br/>функций: %3<br/>связей: %4\"]")
+                .arg(mermaidNodeId(moduleInfo.displayName), moduleInfo.displayName, QString::number(moduleInfo.functions.size()), QString::number(moduleInfo.dependencies.size()));
+            graphLines << QStringLiteral("        class %1 fileModule").arg(mermaidNodeId(moduleInfo.displayName));
+        }
+        graphLines << QStringLiteral("    end");
     }
 
     QSet<QString> seenEdges; ///< Множество уже добавленных рёбер Mermaid для защиты от дублей.
@@ -1250,8 +1424,12 @@ QString buildModuleMermaidGraph(const CodeMapModuleInfo& moduleInfo, const CodeM
 {
     QStringList graphLines;
     graphLines << QStringLiteral("```mermaid");
-    graphLines << QStringLiteral("flowchart LR");
-    graphLines << QStringLiteral("    %1[\"%2\"]").arg(mermaidNodeId(moduleInfo.displayName), moduleInfo.displayName);
+    graphLines << QStringLiteral("flowchart TB");
+    graphLines << QStringLiteral("    classDef currentModule fill:#EAF2FF,stroke:#1A73E8,stroke-width:2px,color:#202124;");
+    graphLines << QStringLiteral("    classDef linkedModule fill:#F8F9FA,stroke:#5F6368,stroke-width:1px,color:#202124;");
+    graphLines << QStringLiteral("    %1[\"%2<br/>функций: %3<br/>связей: %4\"]")
+        .arg(mermaidNodeId(moduleInfo.displayName), moduleInfo.displayName, QString::number(moduleInfo.functions.size()), QString::number(moduleInfo.dependencies.size()));
+    graphLines << QStringLiteral("    class %1 currentModule").arg(mermaidNodeId(moduleInfo.displayName));
 
     QSet<QString> targetNames; ///< Множество целевых модулей для локального графа без повторов.
     for (const CodeMapDependencyInfo& dependencyInfo : moduleInfo.dependencies) {
@@ -1263,7 +1441,10 @@ QString buildModuleMermaidGraph(const CodeMapModuleInfo& moduleInfo, const CodeM
             continue;
         }
 
-        graphLines << QStringLiteral("    %1[\"%2\"]").arg(mermaidNodeId(targetModuleName), targetModuleName);
+        const CodeMapModuleInfo& targetModule = model.modulesByName.value(targetModuleName);
+        graphLines << QStringLiteral("    %1[\"%2<br/>функций: %3<br/>связей: %4\"]")
+            .arg(mermaidNodeId(targetModuleName), targetModuleName, QString::number(targetModule.functions.size()), QString::number(targetModule.dependencies.size()));
+        graphLines << QStringLiteral("    class %1 linkedModule").arg(mermaidNodeId(targetModuleName));
     }
 
     for (const CodeMapDependencyInfo& dependencyInfo : moduleInfo.dependencies) {
@@ -1395,7 +1576,10 @@ QString buildModuleMarkdown(const CodeMapModuleInfo& moduleInfo, const CodeMapPr
     markdownStream << "## Кратко\n\n";
     markdownStream << (moduleInfo.summary.isEmpty() ? QStringLiteral("Описание отсутствует.") : moduleInfo.summary) << "\n\n";
 
-    markdownStream << "## Диаграмма связей\n\n";
+    markdownStream << "## Таблица связей модуля\n\n";
+    markdownStream << buildModuleDependencyTable(moduleInfo, model) << "\n\n";
+
+    markdownStream << "## Mermaid-диаграмма связей\n\n";
     markdownStream << buildModuleMermaidGraph(moduleInfo, model) << "\n\n";
 
     markdownStream << "## Функции\n\n";
@@ -1439,8 +1623,8 @@ QString buildModuleMarkdown(const CodeMapModuleInfo& moduleInfo, const CodeMapPr
     markdownStream << "## Зависимости\n\n";
     markdownStream << buildDependencySection(moduleInfo, model) << "\n";
 
-    markdownStream << "## Qt connect-связи\n\n";
-    markdownStream << buildConnectionSection(moduleInfo, model);
+    markdownStream << "## Таблица Qt connect-связей\n\n";
+    markdownStream << buildConnectionTable(moduleInfo, model);
     return markdownText;
 }
 
@@ -1458,7 +1642,13 @@ QString buildIndexMarkdown(const CodeMapProjectModel& model)
     markdownStream << "## Источник\n\n";
     markdownStream << "`" << model.sourceRootPath << "`\n\n";
 
-    markdownStream << "## Диаграмма модулей\n\n";
+    markdownStream << "## Таблица модулей\n\n";
+    markdownStream << buildProjectModuleTable(model) << "\n\n";
+
+    markdownStream << "## Таблица связей между модулями\n\n";
+    markdownStream << buildProjectDependencyTable(model) << "\n\n";
+
+    markdownStream << "## Mermaid-диаграмма модулей\n\n";
     markdownStream << buildProjectMermaidGraph(model) << "\n\n";
 
     markdownStream << "## Модули\n\n";

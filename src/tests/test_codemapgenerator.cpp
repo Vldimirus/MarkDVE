@@ -134,7 +134,11 @@ void CodeMapGeneratorTests::generateCreatesMarkdownHierarchy()
     QVERIFY(indexText.contains(QStringLiteral("[SampleWidget](modules/sample_widget.md)")));
     QVERIFY(indexText.contains(QStringLiteral("[HelperService](modules/helper_service.md)")));
     QVERIFY(indexText.contains(QStringLiteral("[main.cpp](files/main.md)")));
-    QVERIFY(indexText.contains(QStringLiteral("flowchart LR")));
+    QVERIFY(indexText.contains(QStringLiteral("## Таблица модулей")));
+    QVERIFY(indexText.contains(QStringLiteral("| [SampleWidget](modules/sample_widget.md) | модуль |")));
+    QVERIFY(indexText.contains(QStringLiteral("## Таблица связей между модулями")));
+    QVERIFY(indexText.contains(QStringLiteral("| [SampleWidget](modules/sample_widget.md) | `signal-slot` | [HelperService](modules/helper_service.md) | fileSaved -> reload |")));
+    QVERIFY(indexText.contains(QStringLiteral("flowchart TB")));
 
     QFile sampleModuleFile(outputDirectory.path() + QStringLiteral("/modules/sample_widget.md"));
     QVERIFY(sampleModuleFile.exists());
@@ -144,6 +148,10 @@ void CodeMapGeneratorTests::generateCreatesMarkdownHierarchy()
     QVERIFY(sampleModuleText.contains(QStringLiteral("Создаёт виджет и принимает зависимость сервиса")));
     QVERIFY(sampleModuleText.contains(QStringLiteral("| `helperService` | `HelperService*` | Сервис для обработки сигнала сохранения. |")));
     QVERIFY(sampleModuleText.contains(QStringLiteral("[HelperService](../modules/helper_service.md)")));
+    QVERIFY(sampleModuleText.contains(QStringLiteral("## Таблица связей модуля")));
+    QVERIFY(sampleModuleText.contains(QStringLiteral("| `include` | [HelperService](../modules/helper_service.md) | helperservice.h |")));
+    QVERIFY(sampleModuleText.contains(QStringLiteral("## Таблица Qt connect-связей")));
+    QVERIFY(sampleModuleText.contains(QStringLiteral("| [SampleWidget](../modules/sample_widget.md) | `fileSaved` | [HelperService](../modules/helper_service.md) | `reload` |")));
     QVERIFY(sampleModuleText.contains(QStringLiteral("fileSaved")));
     QVERIFY(sampleModuleText.contains(QStringLiteral("reload")));
 
